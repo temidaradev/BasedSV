@@ -1,6 +1,6 @@
 CXX = clang++
 
-EXE = example_glfw_opengl3
+EXE = glsl_visualizer
 IMGUI_DIR = imgui/
 SOURCES = main.cpp
 SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
