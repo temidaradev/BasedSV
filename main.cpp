@@ -1,159 +1,146 @@
 #include "imgui/backends/imgui_impl_glfw.h"
 #include "imgui/backends/imgui_impl_opengl3.h"
 #include "imgui/imgui.h"
-#include <stdio.h>
-#define GL_SILENCE_DEPRECATION
-#if defined(IMGUI_IMPL_OPENGL_ES2)
-#include <GLES2/gl2.h>
-#endif
+
+#include "glad/include/glad/glad.h"
 #include <GLFW/glfw3.h>
+#include <iostream>
 
-#if defined(_MSC_VER) && (_MSC_VER >= 1900) &&                                 \
-    !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
-#pragma comment(lib, "legacy_stdio_definitions")
-#endif
+const char *vertexShaderSource =
+    "#version 330 core\n"
+    "layout (location = 0) in vec3 aPos;\n"
+    "uniform float size;\n"
+    "void main()\n"
+    "{\n"
+    "   gl_Position = vec4(size * aPos.x, size * aPos.y, size * aPos.z, 1.0);\n"
+    "}\0";
+const char *fragmentShaderSource = "#version 330 core\n"
+                                   "out vec4 FragColor;\n"
+                                   "uniform vec4 color;\n"
+                                   "void main()\n"
+                                   "{\n"
+                                   "   FragColor = color;\n"
+                                   "}\n\0";
 
-#ifdef __EMSCRIPTEN__
-#include "../libs/emscripten/emscripten_mainloop_stub.h"
-#endif
-
-static void glfw_error_callback(int error, const char *description) {
-  fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
+  glViewport(0, 0, width, height);
 }
 
-// Main code
-int main(int, char **) {
-  glfwSetErrorCallback(glfw_error_callback);
-  if (!glfwInit())
-    return 1;
+int main() {
+  glfwInit();
 
-  // Decide GL+GLSL versions
-#if defined(IMGUI_IMPL_OPENGL_ES2)
-  // GL ES 2.0 + GLSL 100 (WebGL 1.0)
-  const char *glsl_version = "#version 100";
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-#elif defined(IMGUI_IMPL_OPENGL_ES3)
-  // GL ES 3.0 + GLSL 300 es (WebGL 2.0)
-  const char *glsl_version = "#version 300 es";
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-#elif defined(__APPLE__)
-  // GL 3.2 + GLSL 150
-  const char *glsl_version = "#version 150";
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // Required on Mac
-#else
-  // GL 3.0 + GLSL 130
-  const char *glsl_version = "#version 130";
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+
-  // only glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // 3.0+ only
-#endif
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-  // Create window with graphics context
-  float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(
-      glfwGetPrimaryMonitor()); // Valid on GLFW 3.3+ only
-  GLFWwindow *window =
-      glfwCreateWindow((int)(1280 * main_scale), (int)(800 * main_scale),
-                       "Dear ImGui GLFW+OpenGL3 example", nullptr, nullptr);
-  if (window == nullptr)
-    return 1;
+  GLFWwindow *window = glfwCreateWindow(800, 800, "BasedSV", NULL, NULL);
+  if (window == NULL) {
+    std::cout << "Failed to create GLFW window" << std::endl;
+    glfwTerminate();
+    return -1;
+  }
   glfwMakeContextCurrent(window);
-  glfwSwapInterval(1); // Enable vsync
 
-  // Setup Dear ImGui context
+  gladLoadGL();
+  int fb_width, fb_height;
+  glfwGetFramebufferSize(window, &fb_width, &fb_height);
+  glViewport(0, 0, fb_width, fb_height);
+  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+  GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+  glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+  glCompileShader(vertexShader);
+
+  GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+  glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+  glCompileShader(fragmentShader);
+
+  GLuint shaderProgram = glCreateProgram();
+  glAttachShader(shaderProgram, vertexShader);
+  glAttachShader(shaderProgram, fragmentShader);
+  glLinkProgram(shaderProgram);
+
+  glDeleteShader(vertexShader);
+  glDeleteShader(fragmentShader);
+
+  GLfloat vertices[] = {
+      -0.5f, -0.5f * float(sqrt(3)) / 3,    0.0f, // Lower left corner
+      0.5f,  -0.5f * float(sqrt(3)) / 3,    0.0f, // Lower right corner
+      0.0f,  0.5f * float(sqrt(3)) * 2 / 3, 0.0f  // Upper corner
+  };
+
+  GLuint VAO, VBO;
+
+  glGenVertexArrays(1, &VAO);
+  glGenBuffers(1, &VBO);
+
+  glBindVertexArray(VAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(0);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-
   ImGui::StyleColorsDark();
-  // ImGui::StyleColorsLight();
-
-  ImGuiStyle &style = ImGui::GetStyle();
-  style.ScaleAllSizes(main_scale);
-  style.FontScaleDpi = main_scale;
-
   ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL3_Init("#version 330");
 
-  ImGui_ImplOpenGL3_Init(glsl_version);
+  bool drawTriangle = true;
+  float size = 1.0f;
+  float color[4] = {0.8f, 0.3f, 0.02f, 1.0f};
 
-  bool show_demo_window = true;
-  bool show_another_window = false;
-  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  glUseProgram(shaderProgram);
+  glUniform1f(glGetUniformLocation(shaderProgram, "size"), size);
+  glUniform4f(glGetUniformLocation(shaderProgram, "color"), color[0], color[1],
+              color[2], color[3]);
 
   while (!glfwWindowShouldClose(window)) {
-    glfwPollEvents();
-    if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0) {
-      ImGui_ImplGlfw_Sleep(10);
-      continue;
-    }
+    glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
+    glUseProgram(shaderProgram);
+    glBindVertexArray(VAO);
+    if (drawTriangle)
+      glDrawArrays(GL_TRIANGLES, 0, 3);
 
-    {
-      static float f = 0.0f;
-      static int counter = 0;
+    ImGui::Begin("My name is window, ImGUI window");
+    ImGui::Text("Hello there adventurer!");
+    ImGui::Checkbox("Draw Triangle", &drawTriangle);
+    ImGui::SliderFloat("Size", &size, 0.5f, 2.0f);
+    ImGui::ColorEdit4("Color", color);
+    ImGui::End();
 
-      ImGui::Begin("Hello, world!");
+    glUseProgram(shaderProgram);
+    glUniform1f(glGetUniformLocation(shaderProgram, "size"), size);
+    glUniform4f(glGetUniformLocation(shaderProgram, "color"), color[0],
+                color[1], color[2], color[3]);
 
-      ImGui::Text("This is some useful text.");
-      ImGui::Checkbox("Demo Window", &show_demo_window);
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-      ImGui::ColorEdit3("clear color", (float *)&clear_color);
-
-      if (ImGui::Button("Button"))
-        counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                  1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-    }
-
-    if (show_another_window) {
-      ImGui::Begin("Another Window", &show_another_window);
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-        show_another_window = false;
-      ImGui::End();
-    }
-
-    // Rendering
     ImGui::Render();
-    int display_w, display_h;
-    glfwGetFramebufferSize(window, &display_w, &display_h);
-    glViewport(0, 0, display_w, display_h);
-    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w,
-                 clear_color.z * clear_color.w, clear_color.w);
-    glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     glfwSwapBuffers(window);
+    glfwPollEvents();
   }
 
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 
+  glDeleteVertexArrays(1, &VAO);
+  glDeleteBuffers(1, &VBO);
+  glDeleteProgram(shaderProgram);
   glfwDestroyWindow(window);
   glfwTerminate();
-
   return 0;
 }
