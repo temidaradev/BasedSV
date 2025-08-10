@@ -114,8 +114,7 @@ int main() {
     if (drawTriangle)
       glDrawArrays(GL_TRIANGLES, 0, 3);
 
-    ImGui::Begin("My name is window, ImGUI window");
-    ImGui::Text("Hello there adventurer!");
+    ImGui::Begin("Editor");
     ImGui::Checkbox("Draw Triangle", &drawTriangle);
     ImGui::SliderFloat("Size", &size, 0.5f, 2.0f);
     ImGui::ColorEdit4("Color", color);
