@@ -2,20 +2,27 @@ CXX = clang++
 CC = clang
 
 EXE = glsl_visualizer
-IMGUI_DIR = imgui/
-GLAD_DIR = glad/
+IMGUI_DIR = external/imgui/
+GLAD_DIR = external/glad/
+SHADER_DIR = assets/shaders/
 SRC_DIR = src/
 SOURCES = main.cpp
-SOURCES += $(SRC_DIR)/shaderClass.cpp
+SOURCES += $(shell find $(SRC_DIR) -name "*.cpp")
 SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
 SOURCES += $(GLAD_DIR)/include/glad/glad.c
 BUILD_DIR = build
-OBJS = $(addprefix $(BUILD_DIR)/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
+OBJS = $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(notdir $(SOURCES)))
+OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(OBJS))
+
+define source-to-object
+$(BUILD_DIR)/$(notdir $(basename $(1))).o: $(1)
+endef
+
 UNAME_S := $(shell uname -s)
 LINUX_GL_LIBS = -lGL
 
-CXXFLAGS = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(GLAD_DIR)/include -Iheaders
+CXXFLAGS = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(GLAD_DIR)/include -Iheaders -I$(SRC_DIR)
 CFLAGS = -I$(GLAD_DIR)/include
 CXXFLAGS += -g -Wall -Wformat
 LIBS =
@@ -51,22 +58,24 @@ endif
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-$(BUILD_DIR)/%.o:%.cpp | $(BUILD_DIR)
+$(foreach src,$(SOURCES),$(eval $(call source-to-object,$(src))))
+
+$(BUILD_DIR)/%.o: | $(BUILD_DIR)
+	@echo "Building $@ from $<"
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-$(BUILD_DIR)/%.o:%.c | $(BUILD_DIR)
+# Fallback rules with vpath to find source files
+vpath %.cpp $(SRC_DIR) $(SRC_DIR)/core $(SRC_DIR)/ui $(SRC_DIR)/utils $(IMGUI_DIR) $(IMGUI_DIR)/backends .
+vpath %.c $(GLAD_DIR)/include/glad
+
+$(BUILD_DIR)/%.o: %.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(BUILD_DIR)/%.o:$(IMGUI_DIR)/%.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-$(BUILD_DIR)/%.o:$(IMGUI_DIR)/backends/%.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-$(BUILD_DIR)/%.o:$(SRC_DIR)/%.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-$(BUILD_DIR)/glad.o:$(GLAD_DIR)/include/glad/glad.c | $(BUILD_DIR)
+# Specific rule for GLAD
+$(BUILD_DIR)/glad.o: $(GLAD_DIR)/include/glad/glad.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 all: $(EXE)

@@ -1,26 +1,11 @@
-#include "imgui/backends/imgui_impl_glfw.h"
-#include "imgui/backends/imgui_impl_opengl3.h"
-#include "imgui/imgui.h"
+#include "../external/imgui/backends/imgui_impl_glfw.h"
+#include "../external/imgui/backends/imgui_impl_opengl3.h"
+#include "../external/imgui/imgui.h"
 
-#include "glad/include/glad/glad.h"
+#include "../external/glad/include/glad/glad.h"
+#include "utils/file_utils.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
-
-const char *vertexShaderSource =
-    "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "uniform float size;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(size * aPos.x, size * aPos.y, size * aPos.z, 1.0);\n"
-    "}\0";
-const char *fragmentShaderSource = "#version 330 core\n"
-                                   "out vec4 FragColor;\n"
-                                   "uniform vec4 color;\n"
-                                   "void main()\n"
-                                   "{\n"
-                                   "   FragColor = color;\n"
-                                   "}\n\0";
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
@@ -46,12 +31,18 @@ int main() {
   glfwGetFramebufferSize(window, &fb_width, &fb_height);
   glViewport(0, 0, fb_width, fb_height);
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+  std::string vertexShaderSource = readFile("assets/shaders/basic.vert");
+  std::string fragmentShaderSource = readFile("assets/shaders/basic.frag");
+  const char *vertexShaderCStr = vertexShaderSource.c_str();
+  const char *fragmentShaderCStr = fragmentShaderSource.c_str();
+
   GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-  glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+  glShaderSource(vertexShader, 1, &vertexShaderCStr, NULL);
   glCompileShader(vertexShader);
 
   GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-  glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+  glShaderSource(fragmentShader, 1, &fragmentShaderCStr, NULL);
   glCompileShader(fragmentShader);
 
   GLuint shaderProgram = glCreateProgram();
@@ -109,21 +100,49 @@ int main() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    glUseProgram(shaderProgram);
-    glBindVertexArray(VAO);
-    if (drawTriangle)
-      glDrawArrays(GL_TRIANGLES, 0, 3);
-
     ImGui::Begin("Editor");
     ImGui::Checkbox("Draw Triangle", &drawTriangle);
     ImGui::SliderFloat("Size", &size, 0.5f, 2.0f);
     ImGui::ColorEdit4("Color", color);
     ImGui::End();
 
-    glUseProgram(shaderProgram);
-    glUniform1f(glGetUniformLocation(shaderProgram, "size"), size);
-    glUniform4f(glGetUniformLocation(shaderProgram, "color"), color[0],
-                color[1], color[2], color[3]);
+    ImGui::Begin("Triangle View");
+    if (drawTriangle) {
+      ImDrawList *draw_list = ImGui::GetWindowDrawList();
+      ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
+      ImVec2 canvas_size = ImGui::GetContentRegionAvail();
+
+      if (canvas_size.x < 100.0f)
+        canvas_size.x = 100.0f;
+      if (canvas_size.y < 100.0f)
+        canvas_size.y = 100.0f;
+
+      draw_list->AddRectFilled(
+          canvas_pos,
+          ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y),
+          IM_COL32(18, 33, 43, 255));
+
+      ImVec2 center = ImVec2(canvas_pos.x + canvas_size.x * 0.5f,
+                             canvas_pos.y + canvas_size.y * 0.5f);
+      float triangle_size = size * 100.0f;
+
+      ImVec2 p1 = ImVec2(center.x, center.y - triangle_size);
+      ImVec2 p2 = ImVec2(center.x - triangle_size * 0.866f,
+                         center.y + triangle_size * 0.5f);
+      ImVec2 p3 = ImVec2(center.x + triangle_size * 0.866f,
+                         center.y + triangle_size * 0.5f);
+
+      // Convert color to ImU32
+      ImU32 triangle_color = IM_COL32(color[0] * 255, color[1] * 255,
+                                      color[2] * 255, color[3] * 255);
+
+      // Draw filled triangle
+      draw_list->AddTriangleFilled(p1, p2, p3, triangle_color);
+
+      // Make the canvas interactive
+      ImGui::InvisibleButton("canvas", canvas_size);
+    }
+    ImGui::End();
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
