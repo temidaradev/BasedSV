@@ -28,11 +28,11 @@ CXXFLAGS += -g -Wall -Wformat
 LIBS =
 
 ifeq ($(UNAME_S), Linux) #LINUX
-	ECHO_MESSAGE = "Linux"
-	LIBS += $(LINUX_GL_LIBS) `pkg-config --static --libs glfw3`
+    ECHO_MESSAGE = "Linux"
+    LIBS += $(LINUX_GL_LIBS) `pkg-config --static --libs glfw3`
 
-	CXXFLAGS += `pkg-config --cflags glfw3`
-	CFLAGS = $(CXXFLAGS)
+    CXXFLAGS += `pkg-config --cflags glfw3`
+    CFLAGS += `pkg-config --cflags glfw3`
 endif
 
 ifeq ($(UNAME_S), Darwin) #APPLE
