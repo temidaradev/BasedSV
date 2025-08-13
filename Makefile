@@ -81,6 +81,9 @@ $(BUILD_DIR)/glad.o: $(GLAD_DIR)/include/glad/glad.c | $(BUILD_DIR)
 all: $(EXE)
 	@echo Build complete for $(ECHO_MESSAGE)
 
+run:
+	./glsl_visualizer
+
 $(EXE): $(OBJS) | $(BUILD_DIR)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LIBS)
 	@echo Executable created: $(EXE)
