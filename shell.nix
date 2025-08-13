@@ -62,7 +62,6 @@ pkgs.mkShell {
       export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
         pkgs.libGL
         pkgs.glfw
-        pkgs.glad
         pkgs.xorg.libX11
         pkgs.xorg.libXcursor
         pkgs.xorg.libXrandr
